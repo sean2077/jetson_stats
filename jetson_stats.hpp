@@ -1,6 +1,6 @@
 // Code Source: https://github.com/zhangxianbing/jetson_stats
-
 #pragma once
+
 #include <sys/stat.h>
 
 #include <cstdio>
@@ -12,17 +12,17 @@
 
 namespace jetson_stats {
 
-std::vector<std::string> tegrastats_path{
+static std::vector<std::string> tegrastats_path{
     "/usr/bin/tegrastats",
     "/home/nvidia/tegrastats",
 };
 
-std::regex RAM_RE{R"(RAM (\d+)\/(\d+)MB)"};
-std::regex UTIL_RE{R"(GR3D(_FREQ?) ([0-9]+)%)"};
-std::regex CPU_RE{R"(CPU \[(.*?)\])"};
-std::regex VAL_FRE_RE{R"(\b(\d+)%@(\d+))"};
+static std::regex RAM_RE{R"(RAM (\d+)\/(\d+)MB)"};
+static std::regex UTIL_RE{R"(GR3D(_FREQ?) ([0-9]+)%)"};
+static std::regex CPU_RE{R"(CPU \[(.*?)\])"};
+static std::regex VAL_FRE_RE{R"(\b(\d+)%@(\d+))"};
 
-inline bool is_file(const std::string& path) {
+static bool is_file(const std::string& path) {
     struct stat s {};
     if (stat(path.c_str(), &s) == 0) {
         return s.st_mode & S_IFREG;
@@ -30,7 +30,7 @@ inline bool is_file(const std::string& path) {
     return false;
 }
 
-inline std::vector<std::string> split_string(const std::string& s, const std::string& c) {
+static std::vector<std::string> split_string(const std::string& s, const std::string& c) {
     std::vector<std::string> v;
     std::string::size_type pos1, pos2;
     pos2 = s.find(c);
@@ -44,7 +44,7 @@ inline std::vector<std::string> split_string(const std::string& s, const std::st
     return v;
 }
 
-inline std::map<std::string, int> val_fraq(const std::string& val) {
+static std::map<std::string, int> val_fraq(const std::string& val) {
     if (val.find("@") != std::string::npos) {
         std::smatch sm;
         if (std::regex_search(val, sm, VAL_FRE_RE)) {
@@ -57,9 +57,9 @@ inline std::map<std::string, int> val_fraq(const std::string& val) {
     return {{"val", std::stoi(val)}};
 }
 
-FILE* pipe_file;
+static FILE* pipe_file;
 
-void init() {
+static void init() {
     std::string cmd;
     for (auto&& p : tegrastats_path) {
         if (is_file(p)) {
@@ -87,11 +87,13 @@ struct info {
     float cpu_utilization;  // in percentage
 };
 
-info get_info() {
+static info get_info() {
     info res{};
 
     char line[512];
-    fgets(line, 512, pipe_file);
+    if (fgets(line, 512, pipe_file) == nullptr) {
+        return res;
+    };
     //    std::cout << line;
 
     std::string s = line;
@@ -128,7 +130,7 @@ info get_info() {
     return res;
 }
 
-void showdown() {
+static void showdown() {
     if (pipe_file) {
         pclose(pipe_file);
         pipe_file = nullptr;
