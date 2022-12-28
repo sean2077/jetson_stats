@@ -1,3 +1,5 @@
+// Code Source: https://github.com/zhangxianbing/jetson_stats
+
 #pragma once
 #include <sys/stat.h>
 
