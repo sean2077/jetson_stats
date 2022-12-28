@@ -7,4 +7,5 @@ Supported indicators:
 - [x] memory used
 - [x] memory total
 - [x] gpu utilization
+- [ ] cpu utilization
 - [ ] todo...

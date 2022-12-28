@@ -17,12 +17,44 @@ std::vector<std::string> tegrastats_path{
     "/home/nvidia/tegrastats",
 };
 
+std::regex RAM_RE{R"(RAM (\d+)\/(\d+)MB)"};
+std::regex UTIL_RE{R"(GR3D(_FREQ?) ([0-9]+)%)"};
+std::regex CPU_RE{R"(CPU \[(.*?)\])"};
+std::regex VAL_FRE_RE{R"(\b(\d+)%@(\d+))"};
+
 inline bool is_file(const std::string& path) {
     struct stat s {};
     if (stat(path.c_str(), &s) == 0) {
         return s.st_mode & S_IFREG;
     }
     return false;
+}
+
+inline std::vector<std::string> split_string(const std::string& s, const std::string& c) {
+    std::vector<std::string> v;
+    std::string::size_type pos1, pos2;
+    pos2 = s.find(c);
+    pos1 = 0;
+    while (std::string::npos != pos2) {
+        v.push_back(s.substr(pos1, pos2 - pos1));
+        pos1 = pos2 + c.size();
+        pos2 = s.find(c, pos1);
+    }
+    if (pos1 != s.length()) v.push_back(s.substr(pos1));
+    return v;
+}
+
+inline std::map<std::string, int> val_fraq(const std::string& val) {
+    if (val.find("@") != std::string::npos) {
+        std::smatch sm;
+        if (std::regex_search(val, sm, VAL_FRE_RE)) {
+            if (sm.size() == 3) {
+                return {{"val", std::stoi(sm[1])}, {"frq", std::stoi(sm[2]) * 1000}};
+            }
+            return {};
+        }
+    }
+    return {{"val", std::stoi(val)}};
 }
 
 FILE* pipe_file;
@@ -52,6 +84,7 @@ struct info {
     float memory_used;      // MB
     float memory_total;     // MB
     float gpu_utilization;  // in percentage
+    float cpu_utilization;  // in percentage
 };
 
 info get_info() {
@@ -60,9 +93,6 @@ info get_info() {
     char line[512];
     fgets(line, 512, pipe_file);
     //    std::cout << line;
-
-    static std::regex RAM_RE{R"(RAM (\d+)\/(\d+)MB)"};
-    static std::regex UTIL_RE{R"(GR3D(_FREQ?) ([0-9]+)%)"};
 
     std::string s = line;
 
@@ -76,6 +106,22 @@ info get_info() {
     if (std::regex_search(s, sm, UTIL_RE)) {
         if (sm.size() == 3) {
             res.gpu_utilization = std::stof(sm[2]);
+        }
+    }
+    if (std::regex_search(s, sm, CPU_RE)) {
+        if (sm.size() == 2) {
+            auto cpu_list = split_string(sm[1], ",");
+            int total_cpu_usage = 0;
+            for (size_t i = 0; i < cpu_list.size(); i++) {
+                if (cpu_list[i] == "off") {
+                    continue;
+                }
+                auto val = val_fraq(cpu_list[i]);
+                total_cpu_usage += val["val"];
+            }
+            if (cpu_list.size() > 0) {
+                res.cpu_utilization = total_cpu_usage * 1.f / cpu_list.size();
+            }
         }
     }
 
